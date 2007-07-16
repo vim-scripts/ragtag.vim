@@ -1,6 +1,9 @@
 " allml.vim - useful XML/HTML mappings
 " Author:       Tim Pope <vimNOSPAM@tpope.info>
-" $Id: allml.vim,v 1.8 2007/05/13 05:32:01 tpope Exp $
+" GetLatestVimScripts: 1896 1 :AutoInstall: allml.vim
+" $Id: allml.vim,v 1.11 2007-07-16 17:46:25 tpope Exp $
+
+" Distributable under the same terms as Vim itself (see :help license)
 
 " These are my personal mappings for XML/XHTML editing, particularly with
 " dynamic content like PHP/ASP/eRuby.  Because they are personal, less effort
@@ -32,7 +35,7 @@
 " will be automatically added.  For example, script becomes
 " <script type="text/javascript">
 "
-" Note the doctype insertion uses Vim completion, which in 7.0 includes
+" Note that the doctype insertion uses Vim completion, which in 7.0 includes
 " erroneous doctypes.  Lowercase the first occurance of "HTML" to fix them.
 "
 " Encoding:
@@ -61,6 +64,16 @@
 " and add a few additional escaped characters if the buffer is confirmed to
 " contain HTML.
 "
+" There are also a few insert mode mappings.  The first two take the next
+" character to be typed and encode it.  The second two put Vim into a special
+" mode where characters are encoded automatically when required.  This is
+" quite cool for demos but is of limited practical value otherwise.
+"
+" <C-V>%           <Plug>allmlUrlV
+" <C-V>&           <Plug>allmlXmlV
+" <C-X>%           <Plug>allmlUrlEncode
+" <C-X>&           <Plug>allmlXmlEncode
+"
 " Surroundings:
 "
 " Combined with surround.vim, you also get three "replacements".  Below, the ^
@@ -88,6 +101,10 @@ if has("autocmd")
         autocmd!
         autocmd FileType *html*,wml,xml,xslt,xsd,jsp    call s:Init()
         autocmd FileType php,asp*,cf,mason,eruby        call s:Init()
+        if version >= 700
+            autocmd InsertLeave * call s:Leave()
+        endif
+        autocmd CursorHold * if exists("b:loaded_allml") | call s:Leave() | endif
     augroup END
 endif
 
@@ -117,11 +134,9 @@ function! s:Init()
     endif
     imap <script> <buffer> <C-X>! <SID>doctype
 
-    imap <buffer> <C-X>& <SID>doctype<C-O>ohtml<C-X><CR>head<C-X><CR><C-X>#<Esc>otitle<C-X><Space><C-R>=expand('%:t:r')<CR><Esc>jobody<C-X><CR><Esc>cc
+    "imap <buffer> <C-X>& <SID>doctype<C-O>ohtml<C-X><CR>head<C-X><CR><C-X>#<Esc>otitle<C-X><Space><C-R>=expand('%:t:r')<CR><Esc>jobody<C-X><CR><Esc>cc
     imap <silent> <buffer> <C-X># <meta http-equiv="Content-Type" content="text/html; charset=<C-R>=<SID>charset()<CR>"<C-R>=<SID>closetag()<CR>
     "map! <buffer> <SID>Thl html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"
-    "abbr <buffer> Thl <SID>Thl
-    "abbr <buffer> Xhl <Lt><SID>Thl>
     "map! <buffer> <C-X>h <Thl><CR></html><Esc>O
     inoremap <silent> <buffer> <SID>HtmlComplete <C-R>=<SID>htmlEn()<CR><C-X><C-O><C-P><C-R>=<SID>htmlDis()<CR><C-N>
     imap     <buffer> <C-X>H <SID>HtmlComplete
@@ -244,6 +259,27 @@ function! s:Init()
     nmap <buffer> <LocalLeader>duu <Plug>allmlLineUrlDecode
     nmap <buffer> <LocalLeader>exx <Plug>allmlLineXmlEncode
     nmap <buffer> <LocalLeader>dxx <Plug>allmlLineXmlDecode
+    imap <buffer> <C-X>%           <Plug>allmlUrlEncode
+    imap <buffer> <C-X>&           <Plug>allmlXmlEncode
+    imap <buffer> <C-V>%           <Plug>allmlUrlV
+    imap <buffer> <C-V>&           <Plug>allmlXmlV
+    " Are these really worth it?
+    "nmap <script><buffer> <LocalLeader>iu  i<SID>allmlUrlEncode
+    "nmap <script><buffer> <LocalLeader>ix  i<SID>allmlXmlEncode
+    "nmap <script><buffer> <LocalLeader>Iu  I<SID>allmlUrlEncode
+    "nmap <script><buffer> <LocalLeader>Ix  I<SID>allmlXmlEncode
+    "nmap <script><buffer> <LocalLeader>au  a<SID>allmlUrlEncode
+    "nmap <script><buffer> <LocalLeader>ax  a<SID>allmlXmlEncode
+    "nmap <script><buffer> <LocalLeader>Au  A<SID>allmlUrlEncode
+    "nmap <script><buffer> <LocalLeader>Ax  A<SID>allmlXmlEncode
+    "nmap <script><buffer> <LocalLeader>ou  o<SID>allmlUrlEncode
+    "nmap <script><buffer> <LocalLeader>ox  o<SID>allmlXmlEncode
+    "nmap <script><buffer> <LocalLeader>Ou  O<SID>allmlUrlEncode
+    "nmap <script><buffer> <LocalLeader>Ox  O<SID>allmlXmlEncode
+    "nmap <script><buffer> <LocalLeader>su  s<SID>allmlUrlEncode
+    "nmap <script><buffer> <LocalLeader>sx  s<SID>allmlXmlEncode
+    "nmap <script><buffer> <LocalLeader>Su  S<SID>allmlUrlEncode
+    "nmap <script><buffer> <LocalLeader>Sx  S<SID>allmlXmlEncode
     "if has("spell")
         "setlocal spell
     "endif
@@ -254,13 +290,17 @@ function! s:Init()
             runtime! indent/html.vim
         endif
     endif
-    " Pet peeve
+    " Pet peeve.  Do people still not close their <p> and <li> tags?
     if exists("g:html_indent_tags") && g:html_indent_tags !~ '\\|p\>'
         let g:html_indent_tags = g:html_indent_tags.'\|p\|li'
     endif
     set indentkeys+=!^F
     let b:surround_indent = 1
     silent doautocmd User allml
+endfunction
+
+function! s:Leave()
+    call s:disableescape()
 endfunction
 
 function! s:length(str)
@@ -414,7 +454,7 @@ function! s:tagextras()
 endfunction
 
 function! s:UrlEncode(str)
-    return substitute(a:str,'[^A-Za-z0-9_.-]','\="%".printf("%02X",char2nr(submatch(0)))','g')
+    return substitute(a:str,'[^A-Za-z0-9_.~-]','\="%".printf("%02X",char2nr(submatch(0)))','g')
 endfunction
 
 function! s:UrlDecode(str)
@@ -422,7 +462,7 @@ function! s:UrlDecode(str)
     return substitute(str,'%\(\x\x\)','\=nr2char("0x".submatch(1))','g')
 endfunction
 
-let s:entities = "\u00a0nbsp\n\u00a9copy\n\u00ablaquo\n\u00aereg\n\u00b5micro\n\u00b6para\n\u00bbraquo\n\u00dfszlig\n"
+let s:entities = "\u00a0nbsp\n\u00a9copy\n\u00ablaquo\n\u00aereg\n\u00b5micro\n\u00b6para\n\u00bbraquo\n\u2018lsquo\n\u2019rsquo\n\u201cldquo\n\u201drdquo\n\u2026hellip\n"
 
 function! s:XmlEncode(str)
     let str = a:str
@@ -445,7 +485,7 @@ function! s:XmlEncode(str)
 endfunction
 
 function! s:XmlDecode(str)
-    let str = a:str
+    let str = substitute(a:str,'&#\%(0*38\|x0*26\);','&amp;','g')
     let changes = s:entities
     while changes != ""
         let orig = matchstr(changes,'.')
@@ -499,6 +539,143 @@ function! s:opfunc(algorithm,type)
     let @@ = reg_save
 endfunction
 
+inoremap <silent> <SID>urlequal <C-R>=<SID>getinput()=~?'\%([?&]\<Bar>&amp;\)[%a-z0-9._~-]*$'?'=':'%3D'<CR>
+inoremap <silent> <SID>urlspace <C-R>=<SID>getinput()=~?'\%([?&]\<Bar>&amp;\)[%a-z0-9._~+-]*=[%a-z0-9._~+-]*$'?'+':'%20'<CR>
+
+function! s:urltab(htmlesc)
+    let line = s:getinput()
+    let g:line = line
+    if line =~ '[^ <>"'."'".']\@<!\w\+$'
+        return ":"
+    elseif line =~ '[^ <>"'."'".']\@<!\w\+:/\=/\=[%a-z0-9._~+-]*$'
+        return "/"
+    elseif line =~? '\%([?&]\|&amp;\)[%a-z0-9._~+-]*$'
+        return "="
+    elseif line =~? '\%([?&]\|&amp;\)[%a-z0-9._~+-]*=[%a-z0-9._~+-]*$'
+        if a:htmlesc || synIDattr(synID(line('.'),col('.')-1,1),"name") =~ 'mlString$'
+            return "&amp;"
+        else
+            return "&"
+        endif
+    elseif line =~ '/$\|\.\w\+$'
+        return "?"
+    else
+        return "/"
+    endif
+endfunction
+
+function! s:toggleurlescape()
+    let htmllayer = 0
+    if exists("b:allml_escape_mode")
+        if b:allml_escape_mode == "url"
+            call s:disableescape()
+            return ""
+        elseif b:allml_escape_mode == "xml"
+            let htmllayer = 1
+        endif
+        call s:disableescape()
+    endif
+    let b:allml_escape_mode = "url"
+    imap     <buffer> <BS> <Plug>allmlBSUrl
+    inoremap <buffer> <CR> %0A
+    imap <script> <buffer> <Space> <SID>urlspace
+    "imap <script> <buffer> =       <SID>urlequal
+    inoremap <buffer> <Tab> &
+    inoremap <buffer> <Bar> %7C
+    if htmllayer
+        inoremap <silent> <buffer> <Tab> <C-R>=<SID>urltab(1)<CR>
+    else
+        inoremap <silent> <buffer> <Tab> <C-R>=<SID>urltab(0)<CR>
+    endif
+    let i = 33
+    while i < 127
+        " RFC3986: reserved = :/?#[]@ !$&'()*+,;=
+        if nr2char(i) =~# '[|=A-Za-z0-9_.~-]'
+        else
+            call s:urlmap(nr2char(i))
+        endif
+        let i = i + 1
+    endwhile
+    return ""
+endfunction
+
+function! s:urlencode(char)
+    let i = 0
+    let repl = ""
+    while i < strlen(a:char)
+        let repl  = repl . printf("%%%02X",char2nr(strpart(a:char,i,1)))
+        let i = i + 1
+    endwhile
+    return repl
+endfunction
+
+function! s:urlmap(char)
+    let repl = s:urlencode(a:char)
+    exe "inoremap <buffer> ".a:char." ".repl
+endfunction
+
+function! s:urlv()
+    return s:urlencode(nr2char(getchar()))
+endfunction
+
+function! s:togglexmlescape()
+    if exists("b:allml_escape_mode")
+        if b:allml_escape_mode == "xml"
+            call s:disableescape()
+            return ""
+        endif
+        call s:disableescape()
+    endif
+    let b:allml_escape_mode = "xml"
+    imap <buffer> <BS> <Plug>allmlBSXml
+    inoremap <buffer> <Lt> &lt;
+    inoremap <buffer> >    &gt;
+    inoremap <buffer> &    &amp;
+    inoremap <buffer> "    &quot;
+    return ""
+endfunction
+
+function! s:disableescape()
+    if exists("b:allml_escape_mode")
+        if b:allml_escape_mode == "xml"
+            silent! iunmap <buffer> <BS>
+            silent! iunmap <buffer> <Lt>
+            silent! iunmap <buffer> >
+            silent! iunmap <buffer> &
+            silent! iunmap <buffer> "
+        elseif b:allml_escape_mode == "url"
+            silent! iunmap <buffer> <BS>
+            silent! iunmap <buffer> <Tab>
+            silent! iunmap <buffer> <CR>
+            silent! iunmap <buffer> <Space>
+            silent! iunmap <buffer> <Bar>
+            let i = 33
+            while i < 127
+                if nr2char(i) =~# '[|A-Za-z0-9_.~-]'
+                else
+                    exe "silent! iunmap <buffer> ".nr2char(i)
+                endif
+                let i = i + 1
+            endwhile
+        endif
+        unlet b:allml_escape_mode
+    endif
+endfunction
+
+function! s:getinput()
+    return strpart(getline('.'),0,col('.')-1)
+endfunction
+
+function! s:bspattern(pattern)
+    let start = s:getinput()
+    let match = matchstr(start,'\%('.a:pattern.'\)$')
+    if match == ""
+      return "\<BS>"
+    else
+      return s:repeat("\<BS>",strlen(match))
+    endif
+endfunction
+
 nnoremap <silent> <Plug>allmlUrlEncode :<C-U>set opfunc=<SID>opfuncUrlEncode<CR>g@
 vnoremap <silent> <Plug>allmlUrlEncode :<C-U>call <SID>opfuncUrlEncode(visualmode())<CR>
 nnoremap <silent> <Plug>allmlLineUrlEncode :<C-U>call <SID>opfuncUrlEncode(v:count1)<CR>
@@ -512,9 +689,22 @@ nnoremap <silent> <Plug>allmlXmlDecode :<C-U>set opfunc=<SID>opfuncXmlDecode<CR>
 vnoremap <silent> <Plug>allmlXmlDecode :<C-U>call <SID>opfuncXmlDecode(visualmode())<CR>
 nnoremap <silent> <Plug>allmlLineXmlDecode :<C-U>call <SID>opfuncXmlDecode(v:count1)<CR>
 
+inoremap <silent> <Plug>allmlBSUrl     <C-R>=<SID>bspattern('%\x\x\=\<Bar>&amp;')<CR>
+inoremap <silent> <Plug>allmlBSXml     <C-R>=<SID>bspattern('&#\=\w*;\<Bar><[^><]*>\=')<CR>
+inoremap <silent>  <SID>allmlUrlEncode <C-R>=<SID>toggleurlescape()<CR>
+inoremap <silent>  <SID>allmlXmlEncode <C-R>=<SID>togglexmlescape()<CR>
+inoremap <silent> <Plug>allmlUrlEncode <C-R>=<SID>toggleurlescape()<CR>
+inoremap <silent> <Plug>allmlXmlEncode <C-R>=<SID>togglexmlescape()<CR>
+inoremap <silent> <Plug>allmlUrlV      <C-R>=<SID>urlv()<CR>
+inoremap <silent> <Plug>allmlXmlV      <C-R>="&#".getchar().";"<CR>
+
 if exists("g:allml_global_maps")
     imap     <C-X>H      <Plug>allmlHtmlComplete
     imap     <C-X>/    </<Plug>allmlHtmlComplete
+    imap     <C-X>%      <Plug>allmlUrlEncode
+    imap     <C-X>&      <Plug>allmlXmlEncode
+    imap     <C-V>%      <Plug>allmlUrlV
+    imap     <C-V>&      <Plug>allmlXmlV
     map      <Leader>eu  <Plug>allmlUrlEncode
     map      <Leader>du  <Plug>allmlUrlDecode
     map      <Leader>ex  <Plug>allmlXmlEncode
